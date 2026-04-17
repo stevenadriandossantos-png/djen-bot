@@ -68,10 +68,16 @@ def fetch_comunicacoes(meio: str = None) -> list:
 
     while True:
         params = {**params_base, "pagina": pagina}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Origin": "https://comunica.pje.jus.br",
+            "Referer": "https://comunica.pje.jus.br/",
+        }
         for tentativa in range(3):
             try:
                 print(f"[{meio or 'ALL'}] Página {pagina}, tentativa {tentativa+1}/3...")
-                resp = requests.get(API_BASE, params=params, timeout=30)
+                resp = requests.get(API_BASE, params=params, headers=headers, timeout=30)
                 if resp.status_code == 429:
                     print("Rate limit atingido — aguardando 60s...")
                     time.sleep(60)
