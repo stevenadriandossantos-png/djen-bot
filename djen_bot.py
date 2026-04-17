@@ -20,7 +20,11 @@ UF = UF.lower() if UF else "mg"
 # URL correta da API pública do DJEN (versão publicada em 04-03-2026)
 API_BASE = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
 
+# ── Configuração de Datas ──────────────────────────────────────────────────
 hoje = datetime.now().strftime("%Y-%m-%d")
+# Se não houver data de início/fim via env (ou se estiver vazio), usa hoje por padrão
+data_inicio = os.getenv("DATA_INICIO") or hoje
+data_fim    = os.getenv("DATA_FIM") or hoje
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -55,7 +59,8 @@ def fetch_comunicacoes(meio: str = None) -> list:
     params_base = {
         "numeroOab": OAB,
         "ufOab": UF,
-        "dataDisponibilizacaoInicio": hoje,
+        "dataDisponibilizacaoInicio": data_inicio,
+        "dataDisponibilizacaoFim": data_fim,
         "itensPorPagina": 100,
     }
     if meio:
@@ -160,8 +165,9 @@ def formatar_item(item: dict, idx: int, prioridade: bool = False) -> str:
 
 
 # ── Coleta de comunicações ──────────────────────────────────────────────────
+periodo_str = f"{data_inicio} até {data_fim}" if data_inicio != data_fim else data_inicio
 print(f"\n{'='*55}")
-print(f"Robô DJEN — {hoje}")
+print(f"Robô DJEN — Período: {periodo_str}")
 print(f"OAB: {OAB}/{UF.upper()}")
 print(f"{'='*55}\n")
 
@@ -178,10 +184,10 @@ for c in todas:
         vistas.add(c["id"])
         unicas.append(c)
 
-print(f"\nTotal de comunicações únicas hoje: {len(unicas)}")
+print(f"\nTotal de comunicações únicas no período: {len(unicas)}")
 
 if not unicas:
-    print("Nenhuma comunicação encontrada hoje. Nada a enviar.")
+    print("Nenhuma comunicação encontrada no período solicitado. Nada a enviar.")
     exit(0)
 
 # ── Separa por Prioridade ──────────────────────────────────────────────────
@@ -196,9 +202,9 @@ for item in unicas:
 
 # ── Monta o e-mail ─────────────────────────────────────────────────────────
 linhas = [
-    f"RELATÓRIO DE COMUNICAÇÕES DJEN — {datetime.now().strftime('%d/%m/%Y')}",
+    f"RELATÓRIO DE COMUNICAÇÕES DJEN — {periodo_str}",
     f"Advogado: STEVEN ADRIAN DOS SANTOS — OAB {OAB}/{UF.upper()}",
-    f"Total de comunicações hoje: {len(unicas)} ({len(prioritarios)} PRIORITÁRIAS)\n",
+    f"Total de comunicações encontradas: {len(unicas)} ({len(prioritarios)} PRIORITÁRIAS)\n",
 ]
 
 idx_global = 1

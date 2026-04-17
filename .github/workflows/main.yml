@@ -4,7 +4,16 @@ on:
   schedule:
     # Roda todos os dias de segunda a sexta às 09:00 UTC (06:00 horário de Brasília)
     - cron: '0 9 * * 1-5'
-  workflow_dispatch: # Permite rodar o script manualmente clicando em um botão
+  workflow_dispatch:
+    inputs:
+      data_inicio:
+        description: 'Data Inicial (AAAA-MM-DD)'
+        required: false
+        default: ''
+      data_fim:
+        description: 'Data Final (AAAA-MM-DD)'
+        required: false
+        default: ''
 
 jobs:
   buscar_intimacoes:
@@ -28,4 +37,6 @@ jobs:
           EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
           SENHA_APP_GMAIL: ${{ secrets.SENHA_APP_GMAIL }}
           EMAIL_DESTINO: ${{ secrets.EMAIL_DESTINO }}
+          DATA_INICIO: ${{ github.event.inputs.data_inicio }}
+          DATA_FIM: ${{ github.event.inputs.data_fim }}
         run: python djen_bot.py
