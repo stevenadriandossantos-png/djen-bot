@@ -1,0 +1,31 @@
+name: Robô de Intimações DJEN
+
+on:
+  schedule:
+    # Roda todos os dias de segunda a sexta às 09:00 UTC (06:00 horário de Brasília)
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch: # Permite rodar o script manualmente clicando em um botão
+
+jobs:
+  buscar_intimacoes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v3
+
+      - name: Configurar o Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependências
+        run: pip install requests
+
+      - name: Executar o robô
+        env:
+          NUMERO_OAB: ${{ secrets.NUMERO_OAB }}
+          UF_OAB: ${{ secrets.UF_OAB }}
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          SENHA_APP_GMAIL: ${{ secrets.SENHA_APP_GMAIL }}
+          EMAIL_DESTINO: ${{ secrets.EMAIL_DESTINO }}
+        run: python djen_bot.py
