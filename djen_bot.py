@@ -14,10 +14,10 @@ EMAIL_REMETENTE  = os.getenv("EMAIL_REMETENTE")
 SENHA_APP        = os.getenv("SENHA_APP_GMAIL")
 EMAIL_DESTINO    = os.getenv("EMAIL_DESTINO")
 
-# A API exige UF em minúsculo
-UF = UF.lower() if UF else "mg"
+# A API prefere UF em maiúsculo conforme testes no navegador
+UF = UF.upper() if UF else "MG"
 
-# URL correta da API pública do DJEN (versão publicada em 04-03-2026)
+# URL correta da API pública do DJEN
 API_BASE = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
 
 # ── Configuração de Datas ──────────────────────────────────────────────────
@@ -69,10 +69,14 @@ def fetch_comunicacoes(meio: str = None) -> list:
     while True:
         params = {**params_base, "pagina": pagina}
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
             "Origin": "https://comunica.pje.jus.br",
             "Referer": "https://comunica.pje.jus.br/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
         }
         for tentativa in range(3):
             try:
