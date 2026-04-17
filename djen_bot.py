@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import smtplib
 from email.mime.text import MIMEText
@@ -14,9 +15,23 @@ EMAIL_DESTINO = os.getenv("EMAIL_DESTINO")
 
 hoje = datetime.now().strftime("%Y-%m-%d")
 
-# 1. Consultar a API do DJEN
+# 1. Consultar a API do DJEN (com retry para lidar com instabilidade)
 url = f"https://comunica.pje.jus.br/api/v1/comunicacao?numeroOab={OAB}&ufOab={UF}&dataDisponibilizacaoInicio={hoje}"
-response = requests.get(url)
+
+response = None
+for tentativa in range(3):
+    try:
+        print(f"Tentativa {tentativa + 1}/3 de consulta à API...")
+        response = requests.get(url, timeout=30)
+        break
+    except requests.exceptions.RequestException as e:
+        print(f"Erro na tentativa {tentativa + 1}: {e}")
+        if tentativa < 2:
+            time.sleep(2 ** tentativa)  # espera 1s, 2s, 4s
+
+if response is None:
+    print("API do DJEN não respondeu após 3 tentativas. Tente novamente mais tarde.")
+    exit(1)
 
 if response.status_code == 200:
     dados = response.json()
