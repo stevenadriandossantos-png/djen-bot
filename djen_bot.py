@@ -96,9 +96,29 @@ def fetch_comunicacoes(meio: str = None) -> list:
     return todos
 
 
-def formatar_item(item: dict, idx: int) -> str:
+def is_priority(item: dict) -> bool:
+    """Verifica se a comunicação é uma decisão, acórdão, despacho ou ato judicial."""
+    tipo = str(item.get("tipoComunicacao", "")).upper()
+    doc = str(item.get("tipoDocumento", "")).upper()
+    
+    keywords = ["DECISÃO", "ACÓRDÃO", "DESPACHO", "ATO JUDICIAL", "SENTENÇA"]
+    
+    for kw in keywords:
+        if kw in tipo or kw in doc:
+            return True
+    
+    # Intimação é prioridade na maioria dos casos de atos judiciais
+    if "INTIMAÇÃO" in tipo:
+        return True
+        
+    return False
+
+
+def formatar_item(item: dict, idx: int, prioridade: bool = False) -> str:
     """Formata um item de comunicação para o corpo do e-mail."""
-    sep = "─" * 55
+    prefixo = "🚨 [PRIORIDADE] " if prioridade else f"#{idx} "
+    sep = "═" * 55 if prioridade else "─" * 55
+    
     proc    = item.get("numeroprocessocommascara", "N/A")
     orgao   = item.get("nomeOrgao", "N/A")
     tipo    = item.get("tipoComunicacao", "N/A")
@@ -118,13 +138,14 @@ def formatar_item(item: dict, idx: int) -> str:
         nome = d.get("nome", "N/A")
         partes_txt += f"    • {polo}: {nome}\n"
 
-    # Texto com limpeza de HTML (resumo de 400 chars)
+    # Texto com limpeza de HTML (resumo de 500 chars para prioridade)
+    limite = 600 if prioridade else 350
     texto_raw = strip_html(item.get("texto", ""))
-    texto = (texto_raw[:400] + "…") if len(texto_raw) > 400 else texto_raw
+    texto = (texto_raw[:limite] + "…") if len(texto_raw) > limite else texto_raw
 
     return (
         f"\n{sep}\n"
-        f"#{idx}  {tipo.upper()} — {proc}\n"
+        f"{prefixo} {tipo.upper()} — {proc}\n"
         f"{sep}\n"
         f"  Tribunal  : {tribunal}\n"
         f"  Órgão     : {orgao}\n"
@@ -149,7 +170,7 @@ comunicacoes_diario = fetch_comunicacoes(meio="D")
 comunicacoes_edital = fetch_comunicacoes(meio="E")
 todas = comunicacoes_diario + comunicacoes_edital
 
-# Deduplica por ID (pode haver sobreposição)
+# Deduplica por ID
 vistas = set()
 unicas = []
 for c in todas:
@@ -163,37 +184,50 @@ if not unicas:
     print("Nenhuma comunicação encontrada hoje. Nada a enviar.")
     exit(0)
 
-# ── Agrupa por tipo de comunicação ─────────────────────────────────────────
-grupos = {}
+# ── Separa por Prioridade ──────────────────────────────────────────────────
+prioritarios = []
+comuns = []
+
 for item in unicas:
-    tipo = item.get("tipoComunicacao", "Outros")
-    grupos.setdefault(tipo, []).append(item)
+    if is_priority(item):
+        prioritarios.append(item)
+    else:
+        comuns.append(item)
 
 # ── Monta o e-mail ─────────────────────────────────────────────────────────
 linhas = [
     f"RELATÓRIO DE COMUNICAÇÕES DJEN — {datetime.now().strftime('%d/%m/%Y')}",
     f"Advogado: STEVEN ADRIAN DOS SANTOS — OAB {OAB}/{UF.upper()}",
-    f"Total de comunicações hoje: {len(unicas)}\n",
+    f"Total de comunicações hoje: {len(unicas)} ({len(prioritarios)} PRIORITÁRIAS)\n",
 ]
 
-contagem_global = 1
-for tipo_grupo, items in sorted(grupos.items()):
-    linhas.append(f"\n{'█'*55}")
-    linhas.append(f"  {tipo_grupo.upper()} ({len(items)} registro(s))")
-    linhas.append(f"{'█'*55}")
-    for item in items:
-        linhas.append(formatar_item(item, contagem_global))
-        contagem_global += 1
+idx_global = 1
+
+# Seção de PRIORIDADES
+if prioritarios:
+    linhas.append(f"\n{'🔥'*20}")
+    linhas.append(f"  🚨 PRIORIDADES (DECISÕES/DESPACHOS/INTIMAÇÕES) ")
+    linhas.append(f"{'🔥'*20}")
+    for item in prioritarios:
+        linhas.append(formatar_item(item, idx_global, prioridade=True))
+        idx_global += 1
+
+# Seção de OUTRAS COMUNICAÇÕES
+if comuns:
+    linhas.append(f"\n{'─'*55}")
+    linhas.append(f"  📋 OUTRAS COMUNICAÇÕES ")
+    linhas.append(f"{'─'*55}")
+    for item in comuns:
+        linhas.append(formatar_item(item, idx_global, prioridade=False))
+        idx_global += 1
 
 corpo_email = "\n".join(linhas)
 
 # ── Envia o e-mail ─────────────────────────────────────────────────────────
-qtd_intimacoes = len(grupos.get("Intimação", []))
-qtd_outros     = len(unicas) - qtd_intimacoes
+qtd_prio = len(prioritarios)
 assunto = (
     f"DJEN {datetime.now().strftime('%d/%m/%Y')} — "
-    f"{len(unicas)} comunicação(ões): "
-    f"{qtd_intimacoes} intimação(ões), {qtd_outros} outro(s)"
+    f"URGENTE: {qtd_prio} PRIORIDADE(S)" if qtd_prio > 0 else f"DJEN {datetime.now().strftime('%d/%m/%Y')} — {len(comuns)} itens"
 )
 
 msg = MIMEMultipart()
